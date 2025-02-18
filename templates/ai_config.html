@@ -1,0 +1,39 @@
+<!-- AI Configuration Modal -->
+<div id="configModal" class="modal">
+    <div class="modal-content">
+        <h2>Configure AI Provider</h2>
+        <div class="configured-providers">
+            <h3>Configured Providers</h3>
+            <div id="configuredProvidersList" class="providers-list">
+                <!-- Configured providers will be inserted here -->
+            </div>
+        </div>
+        <form id="configForm">
+            <div class="form-group">
+                <label for="provider">Provider:</label>
+                <select id="provider" name="provider" required>
+                    <option value="">Select a provider</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="gemini">Google Gemini</option>
+                </select>
+            </div>
+            <div id="apiKeyGroup" class="form-group">
+                <label for="apiKey">API Key:</label>
+                <input type="password" id="apiKey" name="apiKey" required>
+            </div>
+            <div class="form-buttons">
+                <button type="submit">Save</button>
+                <button type="button" id="closeModal">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Config Message Template -->
+<template id="configMessageTemplate">
+    <div class="message system config-message">
+        Please configure your AI provider to start chatting
+        <button class="config-button">Configure Now</button>
+    </div>
+</template>

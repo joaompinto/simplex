@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Simple Chat Box{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/ai_config.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='/favicon.ico') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-title">
+                <h1>{% block header_title %}Simple Chat{% endblock %}</h1>
+                <div id="headerSubtitle" class="header-subtitle" style="display: none">
+                    Using <span id="aiProvider"></span>
+                    <button id="deleteConfig" class="delete-config" title="Remove configuration">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+            </div>
+            <div class="header-buttons">
+                <button id="headerConfigButton" class="config-button">
+                    ⚙️ Configure AI
+                </button>
+                <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
+                    <span class="theme-toggle-dark">🌙</span>
+                    <span class="theme-toggle-light">☀️</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="messageArea">
+            <!-- Messages will be inserted here -->
+        </div>
+        
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Type your message..." disabled>
+            <button id="sendButton" disabled>Send</button>
+        </div>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <script src="{{ url_for('static', path='/js/ai_config.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/script.js') }}"></script>
+</body>
+</html>

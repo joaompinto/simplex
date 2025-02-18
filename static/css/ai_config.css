@@ -1,0 +1,393 @@
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-bg);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background-color: var(--container-bg);
+    padding: 20px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 2px 10px var(--shadow-color);
+}
+
+.modal-content h2 {
+    color: var(--input-color);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.config-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: var(--input-bg);
+}
+
+.config-section h3 {
+    color: var(--input-color);
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+}
+
+.current-provider-info {
+    padding: 15px;
+    border-radius: 6px;
+    background-color: var(--container-bg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.provider-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--input-color);
+    font-weight: 500;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #4CAF50;
+    display: inline-block;
+}
+
+.provider-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-button {
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.action-button.danger {
+    color: #ff4444;
+}
+
+.action-button.danger:hover {
+    background-color: rgba(255, 68, 68, 0.1);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--input-color);
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+    color: var(--input-color);
+}
+
+.api-key-help {
+    margin-bottom: 12px;
+    font-size: 0.9em;
+    color: var(--input-color);
+}
+
+.api-key-help a {
+    color: #66b3ff;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+[data-theme="dark"] .api-key-help a {
+    color: #99ccff;
+}
+
+.api-key-help a:hover {
+    text-decoration: underline;
+    color: #3399ff;
+}
+
+[data-theme="dark"] .api-key-help a:hover {
+    color: #cce6ff;
+}
+
+.form-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.form-buttons button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.form-buttons button[type="submit"] {
+    background-color: var(--header-bg);
+    color: var(--header-color);
+}
+
+.form-buttons button[type="button"] {
+    background-color: var(--received-message-bg);
+    color: var(--received-message-color);
+}
+
+.form-buttons button:hover {
+    opacity: 0.9;
+}
+
+/* Header AI config elements */
+.header-subtitle {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.config-button {
+    background: none;
+    border: none;
+    color: var(--header-color);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.config-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.delete-config {
+    background: none;
+    border: none;
+    color: var(--header-color);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    opacity: 0.8;
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: all 0.2s;
+}
+
+.delete-config:hover {
+    opacity: 1;
+    background-color: rgba(255, 0, 0, 0.2);
+}
+
+/* Config message in chat */
+.config-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.config-message .config-button {
+    color: #000;
+    background-color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.config-message .config-button:hover {
+    background-color: #f8f9fa;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-bg);
+    z-index: 1000;
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-content {
+    position: relative;
+    background-color: var(--modal-content-bg);
+    margin: 15% auto;
+    padding: 2rem;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 500px;
+}
+
+.modal h2 {
+    margin-bottom: 1.5rem;
+    color: var(--input-color);
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--input-color);
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+    color: var(--input-color);
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.form-buttons button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.form-buttons button[type="submit"] {
+    background-color: var(--sent-message-bg);
+    color: var(--sent-message-color);
+}
+
+.form-buttons button[type="button"] {
+    background-color: var(--received-message-bg);
+    color: var(--received-message-color);
+}
+
+/* Configured Providers */
+.configured-providers {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background-color: var(--input-bg);
+    border-radius: 8px;
+}
+
+.configured-providers h3 {
+    margin-bottom: 1rem;
+    color: var(--input-color);
+    font-size: 1rem;
+}
+
+.providers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.provider-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background-color: var(--modal-content-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+}
+
+.provider-item.current {
+    border-color: var(--sent-message-bg);
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.provider-name {
+    font-weight: 500;
+    color: var(--input-color);
+}
+
+.provider-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.provider-select,
+.provider-remove {
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.provider-select {
+    color: var(--sent-message-color);
+    background-color: var(--sent-message-bg);
+}
+
+.provider-select:hover {
+    opacity: 0.9;
+}
+
+.provider-remove {
+    color: #dc3545;
+    border: 1px solid currentColor;
+}
+
+.provider-remove:hover {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.no-providers {
+    text-align: center;
+    padding: 1rem;
+    color: var(--input-color);
+    font-style: italic;
+    opacity: 0.7;
+}
+
+/* Hide template content */
+template {
+    display: none;
+}
