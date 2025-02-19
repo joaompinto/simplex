@@ -28,6 +28,22 @@
     --chat-system-bg: #ffd700;
     --chat-text: #333333;
     --code-bg: #f8f8f8;
+    --border-color: #e0e0e0;
+    --primary-color: #007bff;
+    --message-bg: #f0f0f0;
+    --system-bg: #fff3cd;
+    --disabled-bg: #e9ecef;
+    --button-hover: #0056b3;
+    --card-bg: #f8f9fa;
+    --error-bg: #f8d7da;
+    --error-text: #842029;
+    --error-border: #f5c2c7;
+    --code-text: #24292f;
+    --code-border: #d0d7de;
+    --inline-code-bg: rgba(175, 184, 193, 0.2);
+    --inline-code-text: #24292f;
+    --quote-bg: rgba(175, 184, 193, 0.2);
+    --quote-border: #d0d7de;
 }
 
 [data-theme="dark"] {
@@ -47,7 +63,7 @@
     --modal-bg: rgba(0, 0, 0, 0.7);
     --modal-content-bg: #2d2d2d;
     --input-border: #404040;
-    --container-bg: #1d1d1d;
+    --container-bg: #0d1117;
     --link-color: #66b3ff;
     --error-color: #dc3545;
     --button-secondary-bg: #4a4a4a;
@@ -58,7 +74,25 @@
     --chat-received-bg: #2d2d2d;
     --chat-system-bg: #8b7500;
     --chat-text: #e1e1e1;
-    --code-bg: #2a2a2a;
+    --code-bg: #1f2428;
+    --border-color: #30363d;
+    --primary-color: #58a6ff;
+    --message-bg: #161b22;
+    --system-bg: #3b2e00;
+    --disabled-bg: #161b22;
+    --button-bg: #238636;
+    --button-hover: #2ea043;
+    --card-bg: #161b22;
+    --error-bg: #3d1a1d;
+    --error-text: #f85149;
+    --error-border: #f85149;
+    --code-text: #e6edf3;
+    --code-border: #464c53;
+    --inline-code-bg: rgba(110, 118, 129, 0.4);
+    --inline-code-text: #e6edf3;
+    --quote-bg: rgba(110, 118, 129, 0.1);
+    --quote-border: #3b434b;
+    --link-color: #58a6ff;
 }
 
 /* Apply theme to body */

@@ -5,14 +5,6 @@ import { PROVIDER_INSTRUCTIONS, PROVIDER_NAMES } from './providers.js';
 class AIConfig extends HTMLElement {
     constructor() {
         super();
-        
-        // Listen for show-config-dialog event
-        document.addEventListener('show-config-dialog', () => {
-            console.log('Show config dialog event received');
-            if (this.configModal) {
-                this.configModal.classList.add('show');
-            }
-        });
 
         // Listen for validation events
         this.addEventListener('validation-success', (e) => {
@@ -177,14 +169,14 @@ class AIConfig extends HTMLElement {
             api_key: formData.get('api_key')
         };
 
-        console.log('Showing validating state');
-        this.showValidatingState();
+        console.log('Submitting config:', { ...config, api_key: '[REDACTED]' });
+        this.setValidating(true);
 
         // Clear any existing error
         this.hideError();
 
         // Dispatch validation event
-        this.dispatchEvent(new CustomEvent('validate-config', {
+        document.dispatchEvent(new CustomEvent('validate-config', {
             detail: config,
             bubbles: true,
             composed: true
@@ -208,9 +200,6 @@ class AIConfig extends HTMLElement {
             this.submitButton.classList.add('validating');
             this.submitButton.disabled = true;
         }
-        if (this.closeModalButton) {
-            this.closeModalButton.disabled = true;
-        }
     }
 
     hideValidatingState() {
@@ -222,64 +211,98 @@ class AIConfig extends HTMLElement {
             this.submitButton.classList.remove('validating');
             this.submitButton.disabled = false;
         }
-        if (this.closeModalButton) {
-            this.closeModalButton.disabled = false;
+    }
+
+    setValidating(isValidating) {
+        console.log('Setting validating state:', isValidating);
+        if (isValidating) {
+            this.showValidatingState();
+        } else {
+            this.hideValidatingState();
         }
     }
 
-    onValidationSuccess(providerInfo) {
-        console.log('Validation success:', {
-            provider: providerInfo.provider,
-            vendor: providerInfo.vendor,
-            model: providerInfo.model
-        });
-        
-        this.hideValidatingState();
+    setValidationResult(result) {
+        console.log('Setting validation result:', result);
+        if (result.success) {
+            // Dispatch success event
+            this.dispatchEvent(new CustomEvent('validation-success', {
+                detail: result,
+                bubbles: true,
+                composed: true
+            }));
+        } else {
+            // Show error
+            if (this.errorContainer) {
+                this.errorContainer.textContent = result.error || 'Unknown error';
+                this.errorContainer.classList.add('show');
+            }
+            // Dispatch error event
+            this.dispatchEvent(new CustomEvent('validation-error', {
+                detail: result,
+                bubbles: true,
+                composed: true
+            }));
+        }
+    }
+
+    updateProviderInfo(providerInfo) {
+        console.log('Updating provider info:', providerInfo);
+        // Dispatch event for provider info update
+        this.dispatchEvent(new CustomEvent('provider-info-update', {
+            detail: providerInfo,
+            bubbles: true,
+            composed: true
+        }));
+    }
+
+    onValidationSuccess(result) {
+        console.log('Validation success:', result);
+        // Hide error if any
+        if (this.errorContainer) {
+            this.errorContainer.classList.remove('show');
+        }
+        // Update provider info if available
+        if (result.provider_info) {
+            this.updateProviderInfo(result.provider_info);
+        }
+        this.setValidating(false);
+        // Hide the modal and dispatch event
         this.hideModal();
-        this.updateHeaderSubtitle(providerInfo.provider);
+        this.dispatchEvent(new CustomEvent('config-updated', {
+            detail: result,
+            bubbles: true,
+            composed: true
+        }));
     }
 
-    onValidationError(error) {
-        console.log('Validation error in component:', error);
-        this.hideValidatingState();
-        
-        // Extract error message from the error object
-        let errorMessage = 'Configuration validation failed';
-        let isSystemError = false;
-        
-        if (error instanceof Error) {
-            errorMessage = error.message;
-            isSystemError = error.message.includes('Failed to get response');
-        } else if (error.message) {
-            errorMessage = error.message;
-        } else if (typeof error === 'string') {
-            errorMessage = error;
-        }
-        
-        console.log('Showing error message:', errorMessage);
-        this.showError(errorMessage, isSystemError);
+    onValidationError(result) {
+        console.log('Validation error:', result);
+        this.showError(result.error);
+        this.setValidating(false);
+        // Dispatch config error event
+        this.dispatchEvent(new CustomEvent('config-error', {
+            detail: result,
+            bubbles: true,
+            composed: true
+        }));
     }
 
-    showError(message, isSystemError = false) {
-        console.log('Displaying error:', message, isSystemError ? '(system error)' : '');
-        if (!this.errorContainer) {
-            console.error('Error container not found');
-            return;
+    showError(message) {
+        if (this.errorContainer) {
+            this.errorContainer.innerHTML = `
+                <div class="error-message">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-text">${message}</span>
+                </div>
+            `;
+            this.errorContainer.classList.add('show');
         }
-
-        // Clear any existing error
-        this.errorContainer.innerHTML = '';
-
-        // Create and add error message
-        const errorDiv = document.createElement('div');
-        errorDiv.className = `error-message${isSystemError ? ' system-error' : ''}`;
-        errorDiv.textContent = message;
-        this.errorContainer.appendChild(errorDiv);
-        console.log('Error message added to container');
     }
 
     hideError() {
         if (this.errorContainer) {
+            this.errorContainer.classList.remove('show');
             this.errorContainer.innerHTML = '';
         }
     }

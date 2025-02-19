@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from typing import List, Optional
 from joao import AsyncAgent
 from .models import Message, AIConfig
-from .config import load_config
+from .config import load_config, SYSTEM_PROMPT
 import traceback
 
 router = APIRouter(prefix="/api")
@@ -33,7 +33,7 @@ async def chat(message: Message):
 
     try:
         agent = AsyncAgent(
-            "You are an expert software developer",
+            SYSTEM_PROMPT,
             api_key=config["api_key"],
             tenant_prefix=config["provider"].upper()
         )
@@ -56,7 +56,7 @@ async def hello(config: Optional[AIConfig] = None):
 
     try:
         agent = AsyncAgent(
-            "You are an expert software developer",
+            SYSTEM_PROMPT,
             api_key=test_config["api_key"],
             tenant_prefix=test_config["provider"].upper()
         )
@@ -81,7 +81,7 @@ async def websocket_endpoint(websocket: WebSocket):
             return
 
         agent = AsyncAgent(
-            "You are an expert software developer",
+            SYSTEM_PROMPT,
             api_key=config["api_key"],
             tenant_prefix=config["provider"].upper()
         )

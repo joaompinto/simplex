@@ -9,7 +9,6 @@ export class MessageManager extends EventTarget {
         this.isConfigured = false;
         this.isConfigError = false;
         this.ws = null;
-        this.connect();
     }
 
     connect() {
@@ -79,16 +78,19 @@ export class MessageManager extends EventTarget {
     }
 
     startNewMessage() {
-        this.currentMessageId = null;
+        // Generate unique message ID using chat-box's API
+        const messageId = this.chatBox.generateMessageId();
+        this.currentMessageId = messageId;
         this.currentBuffer = [];
         this.isStreaming = true;
 
         if (this.chatBox) {
-            this.currentMessageId = this.chatBox.addMessageMD({
+            // Add message to chat with the generated ID
+            this.chatBox.addMessageMD({
                 content: '',
                 type: 'received',
                 metadata: { 
-                    id: this.currentMessageId,
+                    id: messageId,
                     timestamp: new Date().toISOString() 
                 }
             });
@@ -96,7 +98,7 @@ export class MessageManager extends EventTarget {
 
         this.dispatchEvent(new CustomEvent('messageStart', {
             detail: {
-                messageId: this.currentMessageId,
+                messageId: messageId,
                 metadata: {
                     user_input_id: this.currentUserInputId
                 }
@@ -193,24 +195,40 @@ export class MessageManager extends EventTarget {
 
     completeMessage() {
         if (!this.isStreaming || !this.currentMessageId) return;
-        
-        if (this.currentBuffer.length > 0) {
-            const content = this.currentBuffer.join('\n');
-            if (this.chatBox) {
-                this.chatBox.updateMessageMD(this.currentMessageId, content);
-            }
+
+        this.isStreaming = false;
+        console.log('Completing message:', this.currentMessageId);
+
+        // Store the message ID before clearing state
+        const completedMessageId = this.currentMessageId;
+
+        // Add copy buttons to code blocks in the completed message
+        if (this.chatBox && this.chatBox.messageHandler) {
+            console.log('Chat box and message handler available, adding copy buttons');
+            // Use setTimeout to ensure content is fully rendered
+            setTimeout(() => {
+                console.log('Adding copy buttons to message:', completedMessageId);
+                this.chatBox.messageHandler.addCopyButtonsToMessage(completedMessageId);
+                this.chatBox.messageHandler.addCopyButtonToMessage(completedMessageId);
+            }, 100);
+        } else {
+            console.warn('Chat box or message handler not available');
         }
 
         this.dispatchEvent(new CustomEvent('messageComplete', {
             detail: {
-                messageId: this.currentMessageId,
+                messageId: completedMessageId,
+                content: this.currentBuffer.join('\n'),
                 metadata: {
                     user_input_id: this.currentUserInputId
                 }
             }
         }));
 
-        this.clear();
+        // Clear state
+        this.currentBuffer = [];
+        this.currentMessageId = null;
+        this.currentUserInputId = null;
     }
 
     clear() {
@@ -221,5 +239,3 @@ export class MessageManager extends EventTarget {
         this.dispatchEvent(new CustomEvent('messageCleared'));
     }
 }
-
-export const messageManager = new MessageManager();

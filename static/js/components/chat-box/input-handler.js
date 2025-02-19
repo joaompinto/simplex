@@ -1,3 +1,5 @@
+import { messageIdGenerator } from './id-generator.js';
+
 export class InputHandler {
     constructor(chatBox) {
         this.chatBox = chatBox;
@@ -43,11 +45,11 @@ export class InputHandler {
 
         console.log('Submitting message:', content);
 
-        // Generate message ID
-        const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
+        // Generate unique message ID
+        const messageId = messageIdGenerator.generate();
 
-        // Add user message to chat
-        this.chatBox.addMessageMD({
+        // Add user message to chat as plain text
+        this.chatBox.addMessage({
             content,
             type: 'sent',
             metadata: { 

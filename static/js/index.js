@@ -1,5 +1,6 @@
+import './components/ai-config/index.js';
 import './components/chat-box/chat-box.js';
-import { messageManager } from './message-manager.js';
+import { MessageManager } from './message-manager.js';
 import { configManager } from './config-manager.js';
 import { themeManager } from './theme-manager.js';
 
@@ -16,9 +17,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         connectionStatus
     });
 
+    // Create message manager with chat-box reference
+    const messageManager = new MessageManager(chatBox);
+
+    // Define updateConnectionStatus function first
+    const updateConnectionStatus = (status, error = false) => {
+        console.log('Updating connection status:', { status, error });
+        if (connectionStatus) {
+            connectionStatus.textContent = status;
+            connectionStatus.style.color = error ? 'var(--error-color)' : 'inherit';
+        }
+    };
+
+    // Initialize with a loading state
+    updateConnectionStatus('Initializing...');
+    chatBox.setInputEnabled(false);
+
     // Check initial configuration
     const configResult = await configManager.checkConfiguration();
     console.log('Configuration check result:', configResult);
+
+    if (!configResult.configured) {
+        updateConnectionStatus('Not configured');
+        chatBox.addCard({
+            content: "# AI Configuration Required\nPlease configure your AI provider to start chatting.",
+            actions: [{
+                label: "Configure AI",
+                event: "show-ai-config"
+            }],
+            metadata: {
+                id: "config-card"
+            }
+        });
+    } else {
+        // Connect if configured
+        messageManager.connect();
+        // Enable chat input
+        chatBox.setInputEnabled(true);
+    }
 
     // Handle chat events
     chatBox.addEventListener('message-submitted', (event) => {
@@ -44,7 +80,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     messageManager.addEventListener('messageComplete', (event) => {
         console.log('Message complete event received:', event.detail);
-        chatBox.setInputEnabled(true);
+        if (configResult.configured) {
+            chatBox.setInputEnabled(true);
+        }
     });
 
     messageManager.addEventListener('error', (event) => {
@@ -59,7 +97,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 error: true
             }
         });
-        chatBox.setInputEnabled(true);
+        if (configResult.configured) {
+            chatBox.setInputEnabled(true);
+        }
     });
 
     messageManager.addEventListener('connection-status', (event) => {
@@ -77,14 +117,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Handle config events
     document.addEventListener('show-ai-config', () => {
         console.log('Showing AI config');
-        aiConfig.dataset.visible = 'true';
+        const configModal = aiConfig.shadowRoot.querySelector('#configModal');
+        if (configModal) {
+            configModal.classList.add('show');
+        }
     });
 
-    document.addEventListener('config-saved', async (event) => {
-        console.log('Config saved, saving configuration...');
-        const result = await configManager.saveConfiguration(event.detail);
-        if (result.success) {
-            messageManager.connect();
+    document.addEventListener('config-saved', (event) => {
+        console.log('Configuration saved:', event.detail);
+        // Remove config card using the component's API
+        const chatBox = document.querySelector('chat-box');
+        if (chatBox) {
+            chatBox.removeCard('config-card');
+            chatBox.setInputEnabled(true);
+        }
+        // Connect to WebSocket since we're now configured
+        messageManager.connect();
+        // Update connection status
+        updateConnectionStatus('Connecting...');
+        // Hide the config modal
+        const aiConfig = document.querySelector('ai-config');
+        if (aiConfig) {
             aiConfig.dataset.visible = 'false';
         }
     });
@@ -94,31 +147,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         aiConfig.dataset.visible = 'false';
     });
 
-    // Update connection status
-    const updateConnectionStatus = (status, error = false) => {
-        console.log('Updating connection status:', { status, error });
-        if (connectionStatus) {
-            connectionStatus.textContent = status;
-            connectionStatus.style.color = error ? 'var(--error-color)' : 'var(--text-color)';
-        }
-    };
+    // Handle validation request
+    document.addEventListener('validate-config', async (event) => {
+        console.log('Validating config:', { ...event.detail, api_key: '[REDACTED]' });
+        await configManager.handleConfigValidation(event.detail);
+    });
 
+    // Handle provider info updates
+    document.addEventListener('provider-info-update', (event) => {
+        console.log('Provider info update:', event.detail);
+        const aiProvider = document.getElementById('aiProvider');
+        if (aiProvider && event.detail) {
+            aiProvider.textContent = event.detail.name;
+        }
+    });
+
+    // Handle configuration errors
+    document.addEventListener('config-error', (event) => {
+        console.log('Configuration error:', event.detail);
+        updateConnectionStatus('Configuration error');
+    });
+
+    // WebSocket connection events
     document.addEventListener('websocket-connected', () => {
         console.log('WebSocket connected');
-        updateConnectionStatus('Connected');
+        if (configResult.configured) {
+            updateConnectionStatus('Connected');
+            chatBox.setInputEnabled(true);
+        }
     });
 
     document.addEventListener('websocket-disconnected', () => {
         console.log('WebSocket disconnected');
-        updateConnectionStatus('Disconnected', true);
+        if (configResult.configured) {
+            updateConnectionStatus('Disconnected', true);
+            chatBox.setInputEnabled(false);
+        }
     });
 
     document.addEventListener('websocket-error', (event) => {
-        console.error('WebSocket error:', event.detail);
-        updateConnectionStatus(`Error: ${event.detail.message}`, true);
+        console.log('WebSocket error:', event.detail);
+        if (configResult.configured) {
+            updateConnectionStatus('Connection error', true);
+            chatBox.setInputEnabled(false);
+        }
     });
-
-    // Initialize message manager with chat box
-    console.log('Initializing message manager...');
-    messageManager.chatBox = chatBox;
 });

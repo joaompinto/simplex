@@ -2,17 +2,63 @@
 
 A simple and elegant chat interface for AI interactions.
 
+## Features
+
+- 🎨 Modern, clean interface with light/dark theme support
+- ⚡ Real-time message streaming
+- 📋 Copy functionality for:
+  - Individual code blocks
+  - Entire messages
+- ⚙️ AI Integration:
+  - Google's Gemini Pro model
+  - Real-time streaming responses
+  - API key validation
+- 💬 Rich message formatting:
+  - Markdown support
+  - Code syntax highlighting
+  - LaTeX math rendering
+- 🔧 Dynamic configuration:
+  - API key management
+  - Connection status display
+  - Real-time validation
+- 📱 Responsive design:
+  - Auto-expanding input
+  - Left-aligned messages for better readability
+  - Compact header with provider info
+
 ## Components
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| ChatBox | `static/js/chat-box.js` | Pure web component for message display and input. Handles message rendering, user input, and basic message styling. No business logic. |
-| AI Configuration | `static/js/ai-config.js` | Dialog component for configuring AI provider settings. Handles validation and submission of API keys. |
-| Main App | `static/js/index.js` | Core application logic. Manages configuration state, provider info, and message handling. Coordinates between components. |
-| API Routes | `api/*.py` | Backend API endpoints: |
-| | `api/config.py` | Handles saving/loading AI provider configuration |
-| | `api/chat.py` | Processes chat messages and returns AI responses |
-| | `api/hello.py` | Validates AI provider configuration |
+### Web Components
+
+| Component | Description |
+|-----------|-------------|
+| ChatBox | Core chat interface component with modular structure: |
+| | - `chat-box.js`: Main component definition |
+| | - `message-handler.js`: Message rendering and management |
+| | - `input-handler.js`: User input and submission |
+| | - `template.js`: Component HTML structure |
+| AI Config | Provider configuration dialog: |
+| | - `ai-config/index.js`: Configuration component |
+| | - `providers.js`: Provider-specific logic |
+| | - `template.js`: Dialog structure |
+| | - `styles.js`: Component styling |
+
+### Core Services
+
+| Service | File | Purpose |
+|---------|------|---------|
+| Message Manager | `message-manager.js` | Handles message processing and API communication |
+| Config Manager | `config-manager.js` | Manages provider configuration and validation |
+| Theme Manager | `theme-manager.js` | Handles light/dark theme switching |
+| Main App | `index.js` | Application initialization and component coordination |
+
+### Backend API
+
+| Module | Purpose |
+|--------|---------|
+| `api/chat.py` | Message processing and AI communication |
+| `api/config.py` | Configuration storage and retrieval |
+| `api/hello.py` | API key and connection validation |
 
 ## Events
 
@@ -22,7 +68,7 @@ The application uses custom events for component communication:
 |-------|------------|---------|
 | `chat-box-ready` | ChatBox | Signals chat box initialization complete |
 | `message-sent` | ChatBox | User has sent a new message |
-| `show-config-dialog` | Index | Request to show the configuration dialog |
+| `show-ai-config` | Index/UI | Request to show the configuration dialog |
 | `validate-config` | AI Config | Request to validate provider configuration |
 | `ai-config-updated` | AI Config | Provider configuration has been updated |
 
@@ -50,13 +96,24 @@ chatBox.clearMessages();
 
 ### Backend API
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/config` | GET | Get current configuration |
-| `/api/config` | POST | Save new configuration |
-| `/api/config` | DELETE | Remove configuration |
-| `/api/chat` | POST | Send message to AI |
-| `/api/hello` | POST | Validate configuration |
+The backend exposes RESTful endpoints for chat and configuration:
+
+```
+POST /api/chat
+- Send messages to the AI provider
+- Supports server-sent events for streaming
+
+POST /api/config
+- Save provider configuration
+- Validates API keys before saving
+
+GET /api/config
+- Retrieve current configuration
+
+POST /api/hello
+- Test provider configuration
+- Validates API keys and models
+```
 
 ## Development
 
@@ -72,12 +129,10 @@ uvicorn main:app --reload
 
 ## Configuration
 
-The application supports multiple AI providers:
+The application supports the following AI provider:
 
 - Google Gemini
-- OpenAI
 
 Configuration is stored in `~/.janito/config.json` and includes:
-- Provider selection
 - API key
 - Model settings

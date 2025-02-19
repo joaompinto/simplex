@@ -10,6 +10,11 @@ router = APIRouter(prefix="/api/config")
 CONFIG_DIR = Path.home() / '.janito'
 CONFIG_FILE = CONFIG_DIR / 'config.json'
 
+# Default system prompt
+SYSTEM_PROMPT = """You are an expert software developer.
+Your name is Janito.
+"""
+
 PROVIDER_INFO = {
     'gemini': {
         'vendor': 'Google',
@@ -25,7 +30,7 @@ async def validate_api_key(provider: str, api_key: str):
     """Validate API key by making a test request."""
     try:
         agent = AsyncAgent(
-            "You are an expert software developer",
+            SYSTEM_PROMPT,
             api_key=api_key,
             tenant_prefix=provider.upper()
         )
@@ -34,13 +39,23 @@ async def validate_api_key(provider: str, api_key: str):
         return True
     except Exception as e:
         error_msg = str(e)
-        if "429" in error_msg:
+        
+        # Extract user-friendly message from Gemini error
+        if "API key not valid" in error_msg:
+            error_msg = "The API key appears to be invalid. Please check your key and try again."
+        elif "quota" in error_msg.lower() or "429" in error_msg:
             error_msg = "API quota exceeded. Please try again later or use a different API key."
         elif "401" in error_msg or "403" in error_msg:
             error_msg = "Invalid API key. Please check your key and try again."
+        elif "API_KEY_INVALID" in error_msg:
+            error_msg = "The provided API key is not valid. Please make sure you've copied the entire key correctly."
+        else:
+            # Make generic errors more user-friendly
+            error_msg = "There was a problem validating your API key. Please check your key and try again."
+        
         raise HTTPException(
             status_code=400, 
-            detail=f"Error validating {provider} API key: {error_msg}"
+            detail=error_msg
         )
 
 def get_provider_info(provider: str, api_key: str):

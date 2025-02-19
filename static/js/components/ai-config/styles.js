@@ -125,8 +125,33 @@ export function getStyles(theme) {
         }
 
         .error-container {
-            margin: 1rem 0;
-            min-height: 4rem;
+            display: none;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            background-color: #fef2f2;
+            border: 1px solid #fee2e2;
+            color: #991b1b;
+            transition: all 0.3s ease;
+        }
+
+        .error-container.show {
+            display: block;
+        }
+
+        .error-message {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .error-icon {
+            flex-shrink: 0;
+        }
+
+        .error-text {
+            font-size: 0.875rem;
+            line-height: 1.25rem;
         }
 
         .error-message {

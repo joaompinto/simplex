@@ -1,7 +1,8 @@
 import { getTemplate } from './template.js';
-import { styles } from './styles.js';
+import { styles } from './styles/index.js';
 import { MessageHandler } from './message-handler.js';
 import { InputHandler } from './input-handler.js';
+import { messageIdGenerator } from './id-generator.js';
 
 /**
  * ChatBox Component
@@ -69,6 +70,16 @@ import { InputHandler } from './input-handler.js';
  *     - append: boolean - If true, appends content instead of replacing
  *   - Returns: boolean - True if message was found and updated
  * 
+ * removeCard(cardId)
+ *   - Removes a card from the chat
+ *   - Parameters:
+ *     - cardId: string - ID of the card to remove
+ *   - Returns: boolean - True if card was found and removed
+ * 
+ * generateMessageId()
+ *   - Generates a unique message ID
+ *   - Returns: string - A unique message ID
+ * 
  * CSS Custom Properties:
  * --------------------
  * --chat-bg: Background color of the chat container
@@ -124,6 +135,12 @@ import { InputHandler } from './input-handler.js';
  *     }
  *   ]
  * });
+ * 
+ * // Remove a card
+ * chatBox.removeCard(cardId);
+ * 
+ * // Generate a message ID
+ * const newMessageId = chatBox.generateMessageId();
  */
 
 export class ChatBox extends HTMLElement {
@@ -136,15 +153,82 @@ export class ChatBox extends HTMLElement {
         this.inputHandler = new InputHandler(this);
     }
 
+    connectedCallback() {
+        // Start observing theme changes on the document root
+        this.observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                    this.updateTheme();
+                }
+            });
+        });
+        this.observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-theme']
+        });
+        
+        // Set initial theme
+        this.updateTheme();
+
+        this.dispatchEvent(new CustomEvent('chat-box-ready', {
+            bubbles: true,
+            composed: true
+        }));
+    }
+
+    disconnectedCallback() {
+        // Clean up observer when component is removed
+        this.observer.disconnect();
+    }
+
+    updateTheme() {
+        const theme = document.documentElement.getAttribute('data-theme');
+        if (theme) {
+            this.setAttribute('data-theme', theme);
+        } else {
+            this.removeAttribute('data-theme');
+        }
+    }
+
     configureMarked() {
+        const decodeHtml = (html) => {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = html;
+            return txt.value;
+        };
+
         const renderer = {
             code(code, language) {
-                code = String(code || '');
-                return `<pre><code>${code}</code></pre>`;
+                // Normalize language name
+                let validLanguage = language;
+                if (language === 'py' || language === 'python3') {
+                    validLanguage = 'python';
+                }
+                
+                // Check if language is supported, fallback to plaintext
+                validLanguage = hljs.getLanguage(validLanguage) ? validLanguage : 'plaintext';
+
+                try {
+                    // First decode any HTML entities
+                    const decodedCode = decodeHtml(code);
+                    
+                    // Then highlight the code
+                    const highlighted = hljs.highlight(decodedCode, {
+                        language: validLanguage,
+                        ignoreIllegals: true
+                    });
+
+                    // Finally wrap in pre/code tags
+                    return `<pre><code class="hljs language-${validLanguage}">${highlighted.value}</code></pre>`;
+                } catch (err) {
+                    console.warn('Failed to highlight code:', err);
+                    return `<pre><code class="hljs">${code}</code></pre>`;
+                }
             },
             codespan(code) {
-                code = String(code || '');
-                return `<code class="inline-code">${code}</code>`;
+                // Decode HTML entities in inline code
+                const decodedCode = decodeHtml(code);
+                return `<code class="inline-code">${decodedCode}</code>`;
             }
         };
 
@@ -170,13 +254,6 @@ export class ChatBox extends HTMLElement {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
-    }
-
-    connectedCallback() {
-        this.dispatchEvent(new CustomEvent('chat-box-ready', {
-            bubbles: true,
-            composed: true
-        }));
     }
 
     render() {
@@ -207,8 +284,12 @@ export class ChatBox extends HTMLElement {
         return this.messageHandler.updateMessageMD(messageId, content, append);
     }
 
-    addCard(params) {
-        return this.messageHandler.addCard(params);
+    addCard(options) {
+        return this.messageHandler.addCard(options);
+    }
+
+    removeCard(cardId) {
+        return this.messageHandler.removeCard(cardId);
     }
 
     setInputEnabled(enabled) {
@@ -217,6 +298,10 @@ export class ChatBox extends HTMLElement {
 
     clearMessages() {
         this.messageHandler.clearMessages();
+    }
+
+    generateMessageId() {
+        return messageIdGenerator.generate();
     }
 }
 

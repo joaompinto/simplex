@@ -5,13 +5,16 @@ export class ConfigManager {
     }
 
     updateProviderInfo(providerInfo) {
-        const headerMessage = document.querySelector('.header-message');
-        if (headerMessage && providerInfo) {
+        const statusEl = document.getElementById('connectionStatus');
+        if (statusEl && providerInfo) {
             const vendor = providerInfo.vendor || 'Unknown';
             const model = providerInfo.model || 'Unknown';
-            headerMessage.innerHTML = `
-                Using ${vendor} ${model}
-                <button class="config-button" onclick="document.dispatchEvent(new CustomEvent('show-config-dialog'))">
+            statusEl.style.display = 'flex';
+            statusEl.style.alignItems = 'center';
+            statusEl.style.gap = '0.3rem';
+            statusEl.innerHTML = `
+                <span>Using ${vendor} ${model}</span>
+                <button class="config-button" onclick="document.dispatchEvent(new CustomEvent('show-ai-config'))">
                     <span class="config-icon">⚙️</span>
                 </button>
             `;
@@ -39,6 +42,7 @@ export class ConfigManager {
 
     async handleConfigValidation(config) {
         const aiConfig = document.querySelector('ai-config');
+        console.log('Validating config with:', config);
 
         try {
             aiConfig?.setValidating(true);
@@ -51,33 +55,34 @@ export class ConfigManager {
                 body: JSON.stringify(config)
             });
 
+            console.log('Validation response status:', response.status);
             const data = await response.json();
+            console.log('Validation response data:', data);
 
             if (response.ok) {
-                aiConfig?.setValidationResult({
-                    success: true,
-                    provider_info: data.provider_info
-                });
+                // Validation successful, now save the config
+                await this.saveConfig(config);
             } else {
                 aiConfig?.setValidationResult({
                     success: false,
-                    error: data.error || 'Unknown error'
+                    error: data.error || data.detail || 'Server returned an error'
                 });
             }
         } catch (error) {
             console.error('Error validating configuration:', error);
             aiConfig?.setValidationResult({
                 success: false,
-                error: error.message || 'Network error'
+                error: error.message || 'Network error occurred'
             });
         } finally {
             aiConfig?.setValidating(false);
         }
     }
 
-    async saveConfiguration(config) {
+    async saveConfig(config) {
+        const aiConfig = document.querySelector('ai-config');
         try {
-            const response = await fetch('/api/config', {
+            const saveResponse = await fetch('/api/config', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -85,19 +90,32 @@ export class ConfigManager {
                 body: JSON.stringify(config)
             });
 
-            const data = await response.json();
-            
-            if (response.ok) {
-                this.isConfigured = true;
-                this.configData = data;
-                this.updateProviderInfo(data.provider_info);
-                return { success: true, provider_info: data.provider_info };
-            } else {
-                return { success: false, error: data.error || 'Unknown error' };
+            if (!saveResponse.ok) {
+                throw new Error('Failed to save configuration');
             }
+
+            const saveData = await saveResponse.json();
+            // Dispatch save success event
+            document.dispatchEvent(new CustomEvent('config-saved', {
+                detail: {
+                    success: true,
+                    provider_info: saveData.provider_info
+                }
+            }));
+            // Update AI config component
+            aiConfig?.setValidationResult({
+                success: true,
+                provider_info: saveData.provider_info
+            });
+            this.isConfigured = true;
+            this.configData = saveData;
+            this.updateProviderInfo(saveData.provider_info);
         } catch (error) {
             console.error('Error saving configuration:', error);
-            return { success: false, error: error.message || 'Network error' };
+            aiConfig?.setValidationResult({
+                success: false,
+                error: error.message || 'Failed to save configuration'
+            });
         }
     }
 
