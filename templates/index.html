@@ -1,9 +1,159 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Janito</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/ai_config.css">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <style>
+        /* Base styles */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
 
-{% block title %}Janito - Your Personal AI Agent{% endblock %}
+        /* App container */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
 
-{% block header_title %}Janito{% endblock %}
+        /* Header styles */
+        .header {
+            background-color: var(--container-bg);
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--input-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 2.5rem;
+            flex-shrink: 0;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .header-message {
+            font-size: 0.9rem;
+            color: var(--text-color);
+            white-space: nowrap;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .header-message .config-button {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            color: var(--text-color);
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        .header-message .config-button:hover {
+            opacity: 1;
+        }
+        .header-message .config-icon {
+            font-size: 1rem;
+            line-height: 1;
+            display: inline-flex;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .theme-toggle {
+            background: none;
+            border: none;
+            padding: 0.25rem;
+            cursor: pointer;
+            color: var(--text-color);
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        .theme-toggle:hover {
+            background-color: var(--input-bg);
+        }
+        [data-theme="dark"] .theme-toggle-dark {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle-light {
+            display: none;
+        }
 
-{% block content %}
-    {% include 'ai_config.html' %}
-{% endblock %}
+        /* Main content */
+        main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Chat box */
+        chat-box {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* AI Config */
+        ai-config {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        ai-config[data-visible="true"] {
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-left">
+                <h1>Chat with Janito</h1>
+            </div>
+            <div class="header-message">
+                <span id="connectionStatus">Not configured</span>
+            </div>
+            <div class="header-right">
+                <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
+                    <span class="theme-toggle-dark">🌙</span>
+                    <span class="theme-toggle-light">☀️</span>
+                </button>
+            </div>
+        </header>
+        <main>
+            <chat-box></chat-box>
+            <ai-config></ai-config>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+
+    <script type="module" src="/static/js/components/chat-box/chat-box.js"></script>
+    <script type="module" src="/static/js/components/ai-config/index.js"></script>
+    <script type="module" src="/static/js/index.js"></script>
+</body>
+</html>
