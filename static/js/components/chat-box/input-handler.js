@@ -48,30 +48,20 @@ export class InputHandler {
         // Generate unique message ID
         const messageId = messageIdGenerator.generate();
 
-        // Add user message to chat as plain text
-        this.chatBox.addMessage({
-            content,
-            type: 'sent',
-            metadata: { 
-                id: messageId,
-                timestamp: new Date().toISOString() 
-            }
-        });
-
-        // Dispatch message submitted event
-        const event = new CustomEvent('message-submitted', {
+        // Emit message-sent event
+        this.chatBox.dispatchEvent(new CustomEvent('message-sent', {
+            detail: {
+                content,
+                messageId
+            },
             bubbles: true,
-            composed: true,
-            detail: { content, messageId }
-        });
-        console.log('Dispatching message-submitted event:', event);
-        this.chatBox.dispatchEvent(event);
+            composed: true
+        }));
 
-        // Clear input and reset height
+        // Clear input
         this.input.value = '';
         this.input.style.height = 'auto';
         this.sendButton.disabled = true;
-        console.log('Input cleared and reset');
     }
 
     setEnabled(enabled) {

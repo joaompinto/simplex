@@ -28,6 +28,13 @@ export const themeStyles = `
         --chat-code-bg: #282c34;
         --chat-code-border: #3e4451;
         --chat-code-text: #abb2bf;
+
+        /* System Messages */
+        --system-message-bg: #f5f5f5;
+        --system-message-border: #e0e0e0;
+        --error-bg: #ffebee;
+        --error-border: #ef9a9a;
+        --error-text: #c62828;
     }
 
     /* Dark theme */
@@ -59,5 +66,12 @@ export const themeStyles = `
         --chat-code-bg: #1e1e1e;
         --chat-code-border: #404040;
         --chat-code-text: #d4d4d4;
+
+        /* System Messages */
+        --system-message-bg: #2d2d2d;
+        --system-message-border: #404040;
+        --error-bg: #421c1c;
+        --error-border: #b71c1c;
+        --error-text: #ef5350;
     }
 `;

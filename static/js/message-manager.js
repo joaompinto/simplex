@@ -146,6 +146,37 @@ export class MessageManager extends EventTarget {
         }
     }
 
+    async sendMessage(content, options = {}) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            throw new Error('Not connected to server');
+        }
+
+        if (this.isStreaming) {
+            throw new Error('Already processing a message');
+        }
+
+        try {
+            this.isStreaming = true;
+            
+            // Send message with options
+            this.ws.send(JSON.stringify({
+                type: 'message',
+                content,
+                options: {
+                    noEditTools: options.noEditTools || false
+                }
+            }));
+
+            // Clear buffer for new message
+            this.currentBuffer = [];
+            
+        } catch (error) {
+            console.error('Error sending message:', error);
+            this.isStreaming = false;
+            throw error;
+        }
+    }
+
     handleSubmittedMessage({ content, messageId }) {
         this.currentUserInputId = messageId;
         
@@ -239,3 +270,6 @@ export class MessageManager extends EventTarget {
         this.dispatchEvent(new CustomEvent('messageCleared'));
     }
 }
+
+// Create and export singleton instance
+export const messageManager = new MessageManager();

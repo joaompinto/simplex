@@ -1,15 +1,23 @@
 import './components/ai-config/index.js';
 import './components/chat-box/chat-box.js';
-import { MessageManager } from './message-manager.js';
+import { messageManager } from './message-manager.js';
 import { configManager } from './config-manager.js';
 import { themeManager } from './theme-manager.js';
+import { CommandManager } from './command-manager.js';
+import { messageIdGenerator } from './components/chat-box/id-generator.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM loaded, initializing app...');
-    
+
     const chatBox = document.querySelector('chat-box');
+    if (!chatBox) {
+        console.error('Chat box not found');
+        return;
+    }
+
     const aiConfig = document.querySelector('ai-config');
     const connectionStatus = document.getElementById('connectionStatus');
+    const commandManager = new CommandManager();
 
     console.log('Elements found:', {
         chatBox,
@@ -17,8 +25,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         connectionStatus
     });
 
-    // Create message manager with chat-box reference
-    const messageManager = new MessageManager(chatBox);
+    // Connect message manager to chat box
+    messageManager.chatBox = chatBox;
+    messageManager.connect();
 
     // Define updateConnectionStatus function first
     const updateConnectionStatus = (status, error = false) => {
@@ -50,11 +59,70 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     } else {
-        // Connect if configured
-        messageManager.connect();
         // Enable chat input
         chatBox.setInputEnabled(true);
     }
+
+    // Handle message submission
+    chatBox.addEventListener('message-sent', async (e) => {
+        const { content, messageId } = e.detail;
+        
+        // Add user message to chat
+        chatBox.addMessage({
+            content,
+            type: 'sent',
+            metadata: { 
+                id: messageId,
+                timestamp: new Date().toISOString() 
+            }
+        });
+        
+        // Check for commands
+        const commandResult = commandManager.handleCommand(content);
+        if (commandResult) {
+            try {
+                const result = await (commandResult.content instanceof Promise ? commandResult.content : commandResult.content);
+                if (result) {  // Only show message if there's content
+                    chatBox.addMessageMD({
+                        content: result,
+                        type: 'system',
+                        className: commandResult.className || '',
+                        metadata: {
+                            id: messageIdGenerator.generate(),
+                            timestamp: new Date().toISOString()
+                        }
+                    });
+                }
+            } catch (error) {
+                chatBox.addMessageMD({
+                    content: `# Error: Command Failed\n\`${error.message}\``,
+                    type: 'system',
+                    className: 'error',
+                    metadata: {
+                        id: messageIdGenerator.generate(),
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            }
+            return;
+        }
+
+        // Regular message handling
+        try {
+            await messageManager.sendMessage(content);
+        } catch (error) {
+            console.error('Error sending message:', error);
+            chatBox.addMessageMD({
+                content: `# Error\n${error.message}`,
+                type: 'system',
+                className: 'error',
+                metadata: {
+                    id: messageIdGenerator.generate(),
+                    timestamp: new Date().toISOString()
+                }
+            });
+        }
+    });
 
     // Handle chat events
     chatBox.addEventListener('message-submitted', (event) => {

@@ -6,17 +6,25 @@ export class MessageHandler {
         this.processingQueue = false;
     }
 
-    addMessage({ content, type = 'received', metadata = {}, isHtml = false }) {
-        console.log('Adding message:', { content, type, metadata, isHtml });
+    addMessage({ content, type = 'received', metadata = {}, isHtml = false, className = '' }) {
+        console.log('Adding message:', { content, type, metadata, isHtml, className });
         
         // Check if we're at the bottom before adding
         const isAtBottom = this.isScrolledToBottom();
         
         const messageElement = document.createElement('div');
-        messageElement.className = `chat-message ${type}`;
+        messageElement.className = `chat-message ${type} ${className}`;
         
-        content = String(content || '');
-        messageElement.innerHTML = isHtml ? content : this.escapeHtml(content);
+        // For system messages, always use markdown
+        if (type === 'system') {
+            content = String(content || '');
+            const parsedContent = window.marked.parse(content);
+            messageElement.innerHTML = parsedContent;
+            messageElement.classList.add('system');
+        } else {
+            content = String(content || '');
+            messageElement.innerHTML = isHtml ? content : this.escapeHtml(content);
+        }
         
         const id = metadata.id || this.generateId();
         messageElement.id = id;
@@ -32,8 +40,8 @@ export class MessageHandler {
         return id;
     }
 
-    addMessageMD({ content, type = 'received', metadata = {} }) {
-        console.log('Adding markdown message:', { content, type, metadata });
+    addMessageMD({ content, type = 'received', metadata = {}, className = '' }) {
+        console.log('Adding markdown message:', { content, type, metadata, className });
         
         // Check if we're at the bottom before adding
         const isAtBottom = this.isScrolledToBottom();
@@ -47,22 +55,23 @@ export class MessageHandler {
                 content: parsedContent,
                 type,
                 metadata,
+                className,
                 isHtml: true
             });
-            
-            // Only scroll if we were at the bottom
-            if (isAtBottom) {
-                this.scrollToBottom();
+
+            // Add copy buttons to code blocks if not a system message
+            if (type !== 'system') {
+                this.addCopyButtonsToMessage(id);
             }
-            
+
             return id;
         } catch (error) {
             console.error('Error parsing markdown:', error);
             return this.addMessage({
-                content,
-                type,
-                metadata,
-                isHtml: false
+                content: `Error parsing markdown: ${error.message}`,
+                type: 'system',
+                className: 'error',
+                metadata
             });
         }
     }

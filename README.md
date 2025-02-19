@@ -25,6 +25,10 @@ A simple and elegant chat interface for AI interactions.
   - Auto-expanding input
   - Left-aligned messages for better readability
   - Compact header with provider info
+- 🛠️ Chat commands:
+  - Built-in help system
+  - Extensible command framework
+  - Slash command syntax (/command args)
 
 ## Components
 
@@ -50,6 +54,7 @@ A simple and elegant chat interface for AI interactions.
 | Message Manager | `message-manager.js` | Handles message processing and API communication |
 | Config Manager | `config-manager.js` | Manages provider configuration and validation |
 | Theme Manager | `theme-manager.js` | Handles light/dark theme switching |
+| Command Manager | `command-manager.js` | Processes chat commands and help system |
 | Main App | `index.js` | Application initialization and component coordination |
 
 ### Backend API
