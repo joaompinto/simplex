@@ -33,6 +33,21 @@ export const copyStyles = `
         opacity: 0.8;
     }
 
+    /* Code block copy button */
+    .code-block-wrapper {
+        position: relative;
+    }
+
+    .code-block-wrapper .message-copy-button {
+        top: 4px;
+        right: 4px;
+        opacity: 0;
+    }
+
+    .code-block-wrapper:hover .message-copy-button {
+        opacity: 0.8;
+    }
+
     /* Increase opacity on button hover */
     .message-copy-button:hover {
         opacity: 1 !important;

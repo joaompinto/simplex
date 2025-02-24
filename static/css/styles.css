@@ -44,6 +44,7 @@
     --inline-code-text: #24292f;
     --quote-bg: rgba(175, 184, 193, 0.2);
     --quote-border: #d0d7de;
+    --hover-bg: #f0f0f0;
 }
 
 [data-theme="dark"] {
@@ -93,6 +94,7 @@
     --quote-bg: rgba(110, 118, 129, 0.1);
     --quote-border: #3b434b;
     --link-color: #58a6ff;
+    --hover-bg: #2d2d2d;
 }
 
 /* Apply theme to body */
@@ -149,6 +151,29 @@ body {
     font-size: 0.9rem;
     color: var(--text-color);
     opacity: 0.8;
+}
+
+.header-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.config-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.config-button:hover {
+    background-color: var(--hover-bg);
+}
+
+.status-text {
+    margin-right: 0.25rem;
 }
 
 /* Theme toggle */

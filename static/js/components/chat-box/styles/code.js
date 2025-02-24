@@ -5,9 +5,12 @@ export const codeStyles = `
         padding: 1rem;
         border-radius: 0.5rem;
         overflow-x: auto;
-        margin: 0.5rem 0;
+        margin: 0.5rem auto;
         border: 1px solid var(--chat-code-border, #3e4451);
         position: relative;
+        width: 100%;
+        max-width: 90%;
+        box-sizing: border-box;
     }
 
     .chat-message pre code.hljs {
@@ -16,6 +19,8 @@ export const codeStyles = `
         font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
         font-size: 0.9em;
         line-height: 1.5;
+        width: 100%;
+        display: inline-block;
     }
 
     /* Copy button styles */
@@ -34,6 +39,7 @@ export const codeStyles = `
         display: flex;
         align-items: center;
         justify-content: center;
+        z-index: 1;
     }
 
     .chat-message pre:hover .copy-button {
@@ -124,5 +130,44 @@ export const codeStyles = `
 
     .hljs-strong {
         font-weight: bold;
+    }
+
+    /* Additional styles */
+    pre {
+        position: relative;
+        padding: 16px;
+        background: var(--chat-code-bg, #1e1e1e);
+        border-radius: 6px;
+        overflow-x: auto;
+        display: block;
+        width: fit-content;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin: 8px 0;
+    }
+
+    pre code {
+        white-space: pre;
+        word-wrap: normal;
+        font-family: 'Fira Code', monospace;
+        display: inline-block;
+        min-width: 100%;
+    }
+
+    pre.code-block-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    .code-copy-button {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        z-index: 1;
+        opacity: 0;
+    }
+
+    pre.code-block-wrapper:hover .code-copy-button {
+        opacity: 1;
     }
 `;

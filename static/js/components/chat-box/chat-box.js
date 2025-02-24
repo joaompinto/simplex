@@ -2,6 +2,8 @@ import { getTemplate } from './template.js';
 import { styles } from './styles/index.js';
 import { MessageHandler } from './message-handler.js';
 import { InputHandler } from './input-handler.js';
+import { CopyHandler } from './copy-handler.js';
+import { MarkdownHandler } from './markdown-handler.js';
 import { messageIdGenerator } from './id-generator.js';
 
 /**
@@ -79,81 +81,30 @@ import { messageIdGenerator } from './id-generator.js';
  * generateMessageId()
  *   - Generates a unique message ID
  *   - Returns: string - A unique message ID
- * 
- * CSS Custom Properties:
- * --------------------
- * --chat-bg: Background color of the chat container
- * --chat-text: Main text color
- * --chat-border: Border color
- * --chat-sent-bg: Background color for sent messages
- * --chat-received-bg: Background color for received messages
- * --chat-system-bg: Background color for system messages
- * --chat-input-bg: Background color for the input area
- * --chat-disabled-bg: Background color for disabled input
- * --chat-button-bg: Background color for the send button
- * --chat-button-hover: Background color for send button on hover
- * --chat-card-bg: Background color for cards
- * 
- * Example Usage:
- * -------------
- * // Add the component to your HTML
- * <chat-box></chat-box>
- * 
- * // Get a reference to the component
- * const chatBox = document.querySelector('chat-box');
- * 
- * // Listen for ready event
- * chatBox.addEventListener('chat-box-ready', () => {
- *   // ChatBox is ready to use
- * });
- * 
- * // Listen for new messages
- * chatBox.addEventListener('message-submitted', (event) => {
- *   const { content, messageId } = event.detail;
- *   // Handle new message
- * });
- * 
- * // Add a message
- * const messageId = chatBox.addMessage({
- *   content: "Hello!",
- *   type: "sent",
- *   metadata: {
- *     timestamp: new Date().toISOString()
- *   }
- * });
- * 
- * // Update a message
- * chatBox.updateMessage(messageId, "Updated content");
- * 
- * // Add a card
- * const cardId = chatBox.addCard({
- *   content: "This is a card",
- *   actions: [
- *     {
- *       label: "Click me",
- *       event: "card-action-clicked"
- *     }
- *   ]
- * });
- * 
- * // Remove a card
- * chatBox.removeCard(cardId);
- * 
- * // Generate a message ID
- * const newMessageId = chatBox.generateMessageId();
  */
 
 export class ChatBox extends HTMLElement {
+    static get styles() {
+        return styles;
+    }
+
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
-        this.configureMarked();
         this.render();
-        this.messageHandler = new MessageHandler(this);
+        
+        // Initialize handlers
+        this.markdownHandler = new MarkdownHandler();
+        const messageContainer = this.shadowRoot.querySelector('.chat-messages');
+        this.messageHandler = new MessageHandler(messageContainer);
         this.inputHandler = new InputHandler(this);
+        this.copyHandler = new CopyHandler(this.shadowRoot);
+        
+        // Start theme observer
+        this.initThemeObserver();
     }
 
-    connectedCallback() {
+    initThemeObserver() {
         // Start observing theme changes on the document root
         this.observer = new MutationObserver(mutations => {
             mutations.forEach(mutation => {
@@ -162,6 +113,7 @@ export class ChatBox extends HTMLElement {
                 }
             });
         });
+        
         this.observer.observe(document.documentElement, {
             attributes: true,
             attributeFilter: ['data-theme']
@@ -169,11 +121,62 @@ export class ChatBox extends HTMLElement {
         
         // Set initial theme
         this.updateTheme();
+    }
 
+    connectedCallback() {
+        // Create shadow DOM first
+        if (!this.shadowRoot) {
+            const shadow = this.attachShadow({ mode: 'open' });
+            shadow.innerHTML = getTemplate();
+        }
+
+        // Set up event listeners
+        this.setupEventListeners();
+
+        // Notify message manager
+        import('../../message-manager.js').then(({ messageManager }) => {
+            console.log('[ChatBox] Setting up with message manager');
+            messageManager.setChatBox(this);
+        });
+        
         this.dispatchEvent(new CustomEvent('chat-box-ready', {
             bubbles: true,
             composed: true
         }));
+    }
+
+    setupEventListeners() {
+        // Add cancel button handler
+        const cancelButton = this.shadowRoot.querySelector('.receiving-indicator .cancel-button');
+        console.log('[ChatBox] Found cancel button:', !!cancelButton);
+        
+        if (cancelButton) {
+            cancelButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                console.log('[ChatBox] Cancel button clicked');
+                console.log('[ChatBox] Current receiving ID:', this._currentReceivingId);
+                
+                if (this._currentReceivingId) {
+                    console.log('[ChatBox] Dispatching messagecancel event');
+                    
+                    // Create event once
+                    const evt = new CustomEvent('messagecancel', {
+                        detail: { messageId: this._currentReceivingId },
+                        bubbles: true,
+                        composed: true
+                    });
+
+                    // Dispatch on the component itself
+                    console.log('[ChatBox] Dispatching event on component');
+                    this.dispatchEvent(evt);
+                    
+                    this.setReceiving(false);
+                }
+            });
+        } else {
+            console.error('[ChatBox] Cancel button not found in shadow DOM');
+        }
     }
 
     disconnectedCallback() {
@@ -190,75 +193,9 @@ export class ChatBox extends HTMLElement {
         }
     }
 
-    configureMarked() {
-        const decodeHtml = (html) => {
-            const txt = document.createElement('textarea');
-            txt.innerHTML = html;
-            return txt.value;
-        };
-
-        const renderer = {
-            code(code, language) {
-                // Normalize language name
-                let validLanguage = language;
-                if (language === 'py' || language === 'python3') {
-                    validLanguage = 'python';
-                }
-                
-                // Check if language is supported, fallback to plaintext
-                validLanguage = hljs.getLanguage(validLanguage) ? validLanguage : 'plaintext';
-
-                try {
-                    // First decode any HTML entities
-                    const decodedCode = decodeHtml(code);
-                    
-                    // Then highlight the code
-                    const highlighted = hljs.highlight(decodedCode, {
-                        language: validLanguage,
-                        ignoreIllegals: true
-                    });
-
-                    // Finally wrap in pre/code tags
-                    return `<pre><code class="hljs language-${validLanguage}">${highlighted.value}</code></pre>`;
-                } catch (err) {
-                    console.warn('Failed to highlight code:', err);
-                    return `<pre><code class="hljs">${code}</code></pre>`;
-                }
-            },
-            codespan(code) {
-                // Decode HTML entities in inline code
-                const decodedCode = decodeHtml(code);
-                return `<code class="inline-code">${decodedCode}</code>`;
-            }
-        };
-
-        window.marked.setOptions({
-            breaks: true,
-            gfm: true,
-            pedantic: false,
-            mangle: false,
-            headerIds: false,
-            highlight: null
-        });
-
-        window.marked.use({ renderer });
-    }
-
-    escapeHtml(unsafe) {
-        if (typeof unsafe !== 'string') {
-            unsafe = String(unsafe || '');
-        }
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
     render() {
         const styleSheet = document.createElement('style');
-        styleSheet.textContent = styles;
+        styleSheet.textContent = this.constructor.styles;
         
         const template = document.createElement('template');
         template.innerHTML = getTemplate();
@@ -303,13 +240,78 @@ export class ChatBox extends HTMLElement {
     generateMessageId() {
         return messageIdGenerator.generate();
     }
+
+    addCopyToMessage(messageId) {
+        this.copyHandler.addCopyToMessage(messageId);
+    }
+
+    addCopyToBlocks(messageId) {
+        this.copyHandler.addCopyToBlocks(messageId);
+    }
+
+    setReceiving(receiving, messageId = null) {
+        const indicator = this.shadowRoot.querySelector('.receiving-indicator');
+        if (!indicator) return;
+
+        console.log('[ChatBox] setReceiving:', receiving, 'messageId:', messageId);
+
+        if (receiving && messageId) {
+            this._currentReceivingId = messageId;
+            indicator.classList.add('visible');
+            console.log('[ChatBox] Showing indicator for:', messageId);
+            
+            // Make sure it's visible even if we're at the bottom
+            setTimeout(() => {
+                if (indicator.classList.contains('visible')) {
+                    indicator.classList.add('visible');
+                }
+            }, 100);
+        } else {
+            console.log('[ChatBox] Hiding indicator, was showing:', this._currentReceivingId);
+            this._currentReceivingId = null;
+            indicator.classList.remove('visible');
+        }
+    }
+
+    getCurrentReceivingId() {
+        return this._currentReceivingId;
+    }
+
+    addNotice(messageId, { type, text }) {
+        const messageElement = this.messageHandler?.getMessageElement(messageId);
+        if (!messageElement) return;
+
+        // Remove any existing notices
+        const existingNotice = messageElement.querySelector('.message-notice');
+        if (existingNotice) {
+            existingNotice.remove();
+        }
+
+        // Create notice element
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = `message-notice ${type}-notice`;
+        noticeDiv.textContent = text;
+        
+        // Append to message
+        messageElement.appendChild(noticeDiv);
+    }
+
+    removeNotice(messageId) {
+        const messageElement = this.messageHandler?.getMessageElement(messageId);
+        if (!messageElement) return;
+
+        const notice = messageElement.querySelector('.message-notice');
+        if (notice) {
+            notice.remove();
+        }
+    }
 }
 
 // Wait for marked to be available before defining the component
 if (window.marked) {
     customElements.define('chat-box', ChatBox);
 } else {
-    window.addEventListener('load', () => {
+    document.addEventListener('marked-ready', () => {
         customElements.define('chat-box', ChatBox);
     });
 }

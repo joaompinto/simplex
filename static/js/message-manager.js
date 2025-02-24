@@ -1,273 +1,281 @@
+import { WebSocketManager } from './websocket-manager.js';
+import { MessageState } from './message-state.js';
+import { StreamProcessor } from './stream-processor.js';
+
 export class MessageManager extends EventTarget {
-    constructor(chatBox) {
+    constructor(chatBox = null) {
         super();
         this.chatBox = chatBox;
-        this.currentBuffer = [];
-        this.currentMessageId = null;
-        this.currentUserInputId = null;
+        this.websocket = new WebSocketManager();
+        this.state = new MessageState();
+        this.processor = new StreamProcessor();
         this.isStreaming = false;
-        this.isConfigured = false;
-        this.isConfigError = false;
-        this.ws = null;
-    }
+        this.ignoredIds = new Set();
 
-    connect() {
-        try {
-            if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
-                return; // Already connected or connecting
-            }
-
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname + (window.location.port ? ':' + window.location.port : '');
-            this.ws = new WebSocket(`${protocol}//${host}/api/ws`);
-            
-            this.setupWebSocketHandlers();
-        } catch (error) {
-            console.error('Error connecting:', error);
-            this.handleError(error);
-        }
-    }
-
-    setupWebSocketHandlers() {
-        if (!this.ws) return;
-
-        this.ws.onopen = () => {
-            console.log('WebSocket connected');
+        // Setup WebSocket event handlers
+        this.websocket.addEventListener('message', (event) => this.handleMessage(event.detail));
+        this.websocket.addEventListener('error', (event) => this.handleError(event.detail.error));
+        this.websocket.addEventListener('connection-status', (event) => {
+            const { connected } = event.detail;
             if (this.chatBox) {
-                this.chatBox.setInputEnabled(true);
+                this.chatBox.setInputEnabled(connected);
             }
-        };
+            this.dispatchEvent(new CustomEvent('connection-status', { detail: { connected } }));
+        });
+    }
 
-        this.ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
+    setChatBox(chatBox) {
+        this.chatBox = chatBox;
+        if (chatBox) {
+            console.log('[MessageManager] Setting up chat box event listeners');
+            // Listen for message cancellations
+            chatBox.addEventListener('messagecancel', (event) => {
+                const messageId = event.detail.messageId;
+                console.log('[MessageManager] Cancel requested for message:', messageId);
                 
-                if (data.type === 'error') {
-                    this.handleError(new Error(data.content));
-                    return;
-                }
+                if (messageId) {
+                    // Find the user input ID that this response is for
+                    const userInputId = this.state.getUserInputId(messageId);
+                    console.log('[MessageManager] Found user input ID:', userInputId);
+                    
+                    if (userInputId) {
+                        // Get current message content and append cancellation notice
+                        const messageElement = this.chatBox?.messageHandler?.getMessageElement(messageId);
+                        if (messageElement) {
+                            // Add the user input ID to ignored set
+                            this.ignoredIds.add(userInputId);
+                            console.log('[MessageManager] Added to ignored IDs:', Array.from(this.ignoredIds));
+                            
+                            // Add cancellation notice
+                            this.chatBox?.addNotice(messageId, {
+                                type: 'cancelled',
+                                text: 'Message cancelled by user'
+                            });
 
-                if (data.type === 'chunk') {
-                    this.appendChunk(data.content);
-                } else if (data.type === 'status') {
-                    if (data.content === 'processing') {
-                        if (!this.currentMessageId) {
-                            this.startNewMessage();
+                            // Send cancellation to server
+                            this.websocket.send('cancel_stream', '', { user_input_id: userInputId });
+
+                            // Stop streaming and clear processor state
+                            this.chatBox?.messageHandler?.setMessageStreaming(messageId, false);
+                            this.chatBox?.setReceiving(false);
+                            this.processor.clear();
+                            console.log('[MessageManager] Marked message as cancelled and cleared state:', messageId);
                         }
-                    } else if (data.content === 'complete') {
-                        this.completeMessage();
                     }
-                }
-            } catch (error) {
-                console.error('Error processing message:', error);
-                this.handleError(error);
-            }
-        };
-
-        this.ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            this.handleError(error);
-        };
-
-        this.ws.onclose = () => {
-            console.log('WebSocket closed');
-            if (this.chatBox) {
-                this.chatBox.setInputEnabled(false);
-            }
-        };
-    }
-
-    startNewMessage() {
-        // Generate unique message ID using chat-box's API
-        const messageId = this.chatBox.generateMessageId();
-        this.currentMessageId = messageId;
-        this.currentBuffer = [];
-        this.isStreaming = true;
-
-        if (this.chatBox) {
-            // Add message to chat with the generated ID
-            this.chatBox.addMessageMD({
-                content: '',
-                type: 'received',
-                metadata: { 
-                    id: messageId,
-                    timestamp: new Date().toISOString() 
                 }
             });
         }
-
-        this.dispatchEvent(new CustomEvent('messageStart', {
-            detail: {
-                messageId: messageId,
-                metadata: {
-                    user_input_id: this.currentUserInputId
-                }
-            }
-        }));
     }
 
-    appendChunk(chunk) {
-        if (!this.isStreaming || !this.currentMessageId) return;
-
-        chunk = String(chunk || '');
-
-        if (chunk.includes('\n')) {
-            const lines = chunk.split('\n');
-            
-            if (this.currentBuffer.length > 0) {
-                const combinedLine = this.currentBuffer[this.currentBuffer.length - 1] + lines[0];
-                this.currentBuffer[this.currentBuffer.length - 1] = combinedLine;
-                lines.shift();
-            }
-
-            this.currentBuffer.push(...lines);
-
-            if (this.chatBox) {
-                this.chatBox.updateMessageMD(this.currentMessageId, this.currentBuffer.join('\n'));
-            }
-
-            this.dispatchEvent(new CustomEvent('newLines', {
-                detail: {
-                    messageId: this.currentMessageId,
-                    lines: this.currentBuffer
-                }
-            }));
-        } else {
-            if (this.currentBuffer.length === 0) {
-                this.currentBuffer.push(chunk);
-            } else {
-                const lastLine = this.currentBuffer[this.currentBuffer.length - 1] + chunk;
-                this.currentBuffer[this.currentBuffer.length - 1] = lastLine;
-            }
-            
-            if (this.chatBox) {
-                this.chatBox.updateMessageMD(this.currentMessageId, this.currentBuffer.join('\n'));
-            }
-        }
+    get webSocketManager() {
+        return this.websocket;
     }
 
-    async sendMessage(content, options = {}) {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            throw new Error('Not connected to server');
-        }
-
-        if (this.isStreaming) {
-            throw new Error('Already processing a message');
-        }
-
+    async connect() {
         try {
-            this.isStreaming = true;
+            await this.webSocketManager.connect();
             
-            // Send message with options
-            this.ws.send(JSON.stringify({
-                type: 'message',
-                content,
-                options: {
-                    noEditTools: options.noEditTools || false
-                }
-            }));
-
-            // Clear buffer for new message
-            this.currentBuffer = [];
+            // Dispatch websocket connected event
+            document.dispatchEvent(new CustomEvent('websocket-connected'));
             
+            return true;
         } catch (error) {
-            console.error('Error sending message:', error);
-            this.isStreaming = false;
-            throw error;
+            console.error('Failed to connect:', error);
+            return false;
         }
     }
 
-    handleSubmittedMessage({ content, messageId }) {
-        this.currentUserInputId = messageId;
-        
+    handleError(error) {
+        console.error('Error:', error);
+        if (this.chatBox) {
+            const errorId = this.chatBox.messageHandler?.generateId() || `error-${Date.now()}`;
+            this.chatBox.addMessageMD({
+                content: `Error: ${error.message}`,
+                type: 'error',
+                metadata: { id: errorId }
+            });
+        }
+    }
+
+    handleMessage(data) {
         try {
-            this.ws.send(JSON.stringify({
-                type: 'message',
-                content,
-                metadata: {
-                    user_input_id: messageId
+            if (data.type === 'error') {
+                this.handleError(new Error(data.content));
+                return;
+            }
+
+            const userInputId = data.metadata?.user_input_id;
+
+            if (data.type === 'chunk') {
+                // Don't process chunks for ignored messages
+                if (!this.ignoredIds.has(userInputId)) {
+                    this.handleChunk(data.content, userInputId);
                 }
-            }));
+            } else if (data.type === 'end_stream') {
+                this.handleEndStream(userInputId);
+            } else if (data.type === 'stream_cancelled') {
+                console.log('[MessageManager] Received cancellation confirmation for:', userInputId);
+                // The server has confirmed the cancellation, we can clean up
+                if (this.state.hasResponse(userInputId)) {
+                    const responseId = this.state.getResponseId(userInputId);
+                    // Don't clear the message, just mark it as not streaming
+                    this.chatBox?.messageHandler?.setMessageStreaming(responseId, false);
+                    this.chatBox?.setReceiving(false);
+                    this.processor.clear();
+                    this.state.clearResponse(userInputId);
+                }
+                // Clean up the ignored ID
+                this.ignoredIds.delete(userInputId);
+            }
         } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('Error processing message:', error);
             this.handleError(error);
         }
     }
 
-    submitMessage(content) {
-        if (!content.trim() || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
-        const userMessageId = this.chatBox.addMessage({
-            content,
-            type: 'sent',
-            metadata: { timestamp: new Date().toISOString() }
-        });
-
-        this.currentUserInputId = userMessageId;
-        this.isStreaming = true;
-        this.currentBuffer = [];
-        this.currentMessageId = null;
-
-        this.ws.send(JSON.stringify({ content }));
-    }
-
-    handleError(error) {
-        this.clear();
-        this.dispatchEvent(new CustomEvent('error', {
-            detail: { 
-                content: error.message || 'An error occurred',
-                messageId: this.currentMessageId,
-                metadata: {
-                    user_input_id: this.currentUserInputId
-                }
+    handleChunk(content, userInputId) {
+        console.log('[MessageManager] Handling chunk for user input:', userInputId);
+        
+        // Create new message if needed
+        if (!this.state.hasResponse(userInputId)) {
+            const messageId = this.chatBox?.messageHandler?.generateId() || `msg-${Date.now()}`;
+            console.log('[MessageManager] Creating new message:', messageId);
+            
+            this.state.setCurrentMessageId(messageId);
+            this.state.linkMessages(userInputId, messageId);
+            
+            // Create empty message and show receiving indicator
+            this.chatBox?.setReceiving(true, messageId);
+            try {
+                this.chatBox?.addMessageMD({
+                    content: '',
+                    type: 'received',
+                    metadata: {
+                        id: messageId,
+                        replyTo: userInputId,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            } catch (error) {
+                console.warn('[MessageManager] Error creating initial message:', error);
+                this.chatBox?.addMessage({
+                    content: '',
+                    type: 'received',
+                    metadata: {
+                        id: messageId,
+                        replyTo: userInputId,
+                        timestamp: new Date().toISOString()
+                    }
+                });
             }
-        }));
-    }
-
-    completeMessage() {
-        if (!this.isStreaming || !this.currentMessageId) return;
-
-        this.isStreaming = false;
-        console.log('Completing message:', this.currentMessageId);
-
-        // Store the message ID before clearing state
-        const completedMessageId = this.currentMessageId;
-
-        // Add copy buttons to code blocks in the completed message
-        if (this.chatBox && this.chatBox.messageHandler) {
-            console.log('Chat box and message handler available, adding copy buttons');
-            // Use setTimeout to ensure content is fully rendered
-            setTimeout(() => {
-                console.log('Adding copy buttons to message:', completedMessageId);
-                this.chatBox.messageHandler.addCopyButtonsToMessage(completedMessageId);
-                this.chatBox.messageHandler.addCopyButtonToMessage(completedMessageId);
-            }, 100);
-        } else {
-            console.warn('Chat box or message handler not available');
         }
 
-        this.dispatchEvent(new CustomEvent('messageComplete', {
-            detail: {
-                messageId: completedMessageId,
-                content: this.currentBuffer.join('\n'),
-                metadata: {
-                    user_input_id: this.currentUserInputId
+        // Process the chunk
+        try {
+            const updates = this.processor.processChunk(content);
+            const responseId = this.state.getResponseId(userInputId);
+            console.log('[MessageManager] Processing chunk for response:', responseId, 'user input:', userInputId);
+            
+            // Apply any updates, handling potential markdown errors
+            for (const update of updates) {
+                try {
+                    if (update.metadata?.append_only) {
+                        // For append_only updates (like cancellation), just append to existing content
+                        const existingContent = this.chatBox?.messageHandler?.getMessageContent(responseId) || '';
+                        this.chatBox?.updateMessageMD(responseId, existingContent + update.content);
+                    } else {
+                        this.chatBox?.updateMessageMD(responseId, update.content);
+                    }
+                } catch (error) {
+                    console.warn('[MessageManager] Error updating markdown, falling back to plain text:', error);
+                    // If markdown parsing fails, fall back to plain text
+                    if (update.metadata?.append_only) {
+                        const existingContent = this.chatBox?.messageHandler?.getMessageContent(responseId) || '';
+                        this.chatBox?.updateMessage(responseId, existingContent + update.content);
+                    } else {
+                        this.chatBox?.updateMessage(responseId, update.content);
+                    }
                 }
             }
-        }));
-
-        // Clear state
-        this.currentBuffer = [];
-        this.currentMessageId = null;
-        this.currentUserInputId = null;
+        } catch (error) {
+            console.error('[MessageManager] Error processing chunk:', error);
+            // Don't throw the error up, just log it and continue
+        }
     }
 
-    clear() {
-        this.currentBuffer = [];
-        this.isStreaming = false;
-        this.currentMessageId = null;
-        this.currentUserInputId = null;
-        this.dispatchEvent(new CustomEvent('messageCleared'));
+    handleEndStream(userInputId) {
+        console.log('[MessageManager] End stream for user input:', userInputId);
+        
+        if (this.state.hasResponse(userInputId)) {
+            const responseId = this.state.getResponseId(userInputId);
+            console.log('[MessageManager] Found response ID:', responseId);
+            
+            // Don't process if message was cancelled
+            if (this.ignoredIds.has(userInputId)) {
+                console.log('[MessageManager] Message was cancelled, cleaning up:', userInputId);
+                this.ignoredIds.delete(userInputId);
+                this.chatBox?.setReceiving(false);
+                return;
+            }
+            
+            // Process any remaining content
+            const finalUpdate = this.processor.processEndOfStream();
+            if (finalUpdate) {
+                try {
+                    this.chatBox?.updateMessageMD(responseId, finalUpdate.content);
+                } catch (error) {
+                    console.warn('[MessageManager] Error updating final markdown, falling back to plain text:', error);
+                    this.chatBox?.updateMessage(responseId, finalUpdate.content);
+                }
+            }
+            
+            // Remove streaming indicator and hide receiving indicator
+            if (this.chatBox?.messageHandler) {
+                this.chatBox.messageHandler.setMessageStreaming(responseId, false);
+            }
+            this.chatBox?.setReceiving(false);
+            
+            // Add copy buttons
+            if (this.chatBox) {
+                this.chatBox.addCopyToMessage(responseId);
+                this.chatBox.addCopyToBlocks(responseId);
+            }
+            
+            // Clear state
+            this.processor.clear();
+            this.state.clearResponse(userInputId);
+            console.log('[MessageManager] Stream completed for:', responseId);
+        }
+    }
+
+    async sendMessage(content, metadata = {}) {
+        if (!this.websocket.isConnected) {
+            throw new Error('WebSocket not connected');
+        }
+
+        this.isStreaming = true;
+        this.processor.clear();
+
+        // Create a placeholder response message
+        const messageId = this.chatBox?.messageHandler?.generateId() || `msg-${Date.now()}`;
+        this.state.setCurrentMessageId(messageId);
+        this.state.linkMessages(metadata.user_input_id, messageId);
+        
+        // Add empty message with streaming indicator
+        this.chatBox?.addMessageMD({
+            content: '...',  // Placeholder content
+            type: 'received',
+            metadata: {
+                id: messageId,
+                replyTo: metadata.user_input_id,
+                timestamp: new Date().toISOString()
+            },
+            streaming: true,
+            className: 'placeholder'  // Add class for styling
+        });
+
+        // Send the message
+        await this.websocket.send('message', content, metadata);
     }
 }
 

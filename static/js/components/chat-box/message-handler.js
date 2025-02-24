@@ -1,141 +1,159 @@
 export class MessageHandler {
-    constructor(chatBox) {
-        this.chatBox = chatBox;
-        this.messageContainer = this.chatBox.shadowRoot.querySelector('.chat-messages');
-        this.messageQueue = [];
-        this.processingQueue = false;
+    constructor(messageContainer) {
+        if (!messageContainer) throw new Error('Message container is required');
+        this.messageContainer = messageContainer;
+        this.autoScrollEnabled = true;
+        
+        // Listen for user scroll interactions
+        this.messageContainer.addEventListener('wheel', () => {
+            this.autoScrollEnabled = false;
+        });
+        
+        this.messageContainer.addEventListener('mousedown', (e) => {
+            // Only handle clicks on the scrollbar
+            if (e.offsetX > this.messageContainer.clientWidth) {
+                this.autoScrollEnabled = false;
+            }
+        });
+        
+        // Re-enable auto-scroll when manually scrolled to bottom
+        this.messageContainer.addEventListener('scroll', () => {
+            const maxScroll = this.messageContainer.scrollHeight - this.messageContainer.clientHeight;
+            const currentScroll = Math.ceil(this.messageContainer.scrollTop);
+            if (maxScroll - currentScroll <= 2) {
+                this.autoScrollEnabled = true;
+            }
+        });
+        
+        // Create ResizeObserver for size changes
+        this.resizeObserver = new ResizeObserver(() => {
+            if (this.autoScrollEnabled) {
+                this.scrollToBottom();
+            }
+        });
+
+        // Create MutationObserver for DOM changes (like syntax highlighting)
+        this.mutationObserver = new MutationObserver((mutations) => {
+            // Check if any mutations affect code blocks
+            const hasCodeChanges = mutations.some(mutation => {
+                return mutation.target.tagName === 'PRE' || 
+                       mutation.target.tagName === 'CODE' ||
+                       mutation.target.closest('pre, code');
+            });
+
+            if (hasCodeChanges && this.autoScrollEnabled) {
+                this.scrollToBottom();
+            }
+        });
+
+        // Observe both childList and subtree changes
+        this.mutationObserver.observe(messageContainer, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            characterData: true
+        });
+    }
+
+    scrollToBottom() {
+        if (!this.messageContainer) return;
+        
+        const maxScroll = this.messageContainer.scrollHeight - this.messageContainer.clientHeight;
+        this.messageContainer.scrollTop = maxScroll;
+
+        // Double-check scroll position after a short delay
+        setTimeout(() => {
+            if (this.autoScrollEnabled) {
+                this.messageContainer.scrollTop = this.messageContainer.scrollHeight - this.messageContainer.clientHeight;
+            }
+        }, 50);
     }
 
     addMessage({ content, type = 'received', metadata = {}, isHtml = false, className = '' }) {
-        console.log('Adding message:', { content, type, metadata, isHtml, className });
-        
-        // Check if we're at the bottom before adding
-        const isAtBottom = this.isScrolledToBottom();
-        
+        const messageId = metadata.id || this.generateMessageId();
         const messageElement = document.createElement('div');
         messageElement.className = `chat-message ${type} ${className}`;
+        messageElement.id = messageId;
         
-        // For system messages, always use markdown
-        if (type === 'system') {
-            content = String(content || '');
-            const parsedContent = window.marked.parse(content);
-            messageElement.innerHTML = parsedContent;
-            messageElement.classList.add('system');
+        if (isHtml) {
+            messageElement.innerHTML = content;
         } else {
-            content = String(content || '');
-            messageElement.innerHTML = isHtml ? content : this.escapeHtml(content);
+            messageElement.textContent = content;
         }
-        
-        const id = metadata.id || this.generateId();
-        messageElement.id = id;
-        
+
         this.messageContainer.appendChild(messageElement);
+        this.resizeObserver.observe(messageElement);
         
-        // Only scroll if we were at the bottom
-        if (isAtBottom) {
+        if (this.autoScrollEnabled) {
             this.scrollToBottom();
         }
-        
-        console.log('Message added with ID:', id);
-        return id;
+
+        return messageId;
     }
 
     addMessageMD({ content, type = 'received', metadata = {}, className = '' }) {
-        console.log('Adding markdown message:', { content, type, metadata, className });
-        
-        // Check if we're at the bottom before adding
-        const isAtBottom = this.isScrolledToBottom();
-        
         try {
-            content = String(content || '');
-            console.log('Parsing markdown content:', content);
-            const parsedContent = window.marked.parse(content);
-            console.log('Parsed markdown result:', parsedContent);
-            const id = this.addMessage({
+            const parsedContent = window.marked.parse(content || '');
+            const messageId = this.addMessage({
                 content: parsedContent,
                 type,
                 metadata,
-                className,
-                isHtml: true
+                isHtml: true,
+                className
             });
-
-            // Add copy buttons to code blocks if not a system message
-            if (type !== 'system') {
-                this.addCopyButtonsToMessage(id);
-            }
-
-            return id;
+            return messageId;
         } catch (error) {
             console.error('Error parsing markdown:', error);
             return this.addMessage({
-                content: `Error parsing markdown: ${error.message}`,
-                type: 'system',
-                className: 'error',
+                content: 'Error rendering message',
+                type: 'error',
                 metadata
             });
         }
     }
 
-    updateMessageMD(messageId, content, append = false) {
-        console.log('Updating markdown message:', { messageId, content, append });
-        try {
-            // Check if we're at the bottom before updating
-            const isAtBottom = this.isScrolledToBottom();
-
-            // First decode any HTML entities in the content
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            const decodedContent = tempDiv.textContent;
-
-            // Then parse the markdown
-            console.log('Parsing markdown update content:', decodedContent);
-            const parsedContent = window.marked.parse(decodedContent);
-            console.log('Parsed markdown update result:', parsedContent);
-            
-            // Update the message
-            const result = this.updateMessage(messageId, parsedContent, append);
-
-            // Ensure we scroll to bottom on the final update if we were at bottom
-            if (isAtBottom) {
-                // Use setTimeout to ensure this runs after the content is fully rendered
-                setTimeout(() => this.scrollToBottom(), 0);
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Error parsing markdown update:', error);
-            return this.updateMessage(messageId, content, append);
-        }
-    }
-
     updateMessage(messageId, content, append = false) {
-        console.log('Updating message:', { messageId, content, append });
         const messageElement = this.messageContainer.querySelector(`#${messageId}`);
-        if (!messageElement) {
-            console.warn('Message not found:', messageId);
-            return false;
-        }
+        if (!messageElement) return false;
         
         content = String(content || '');
+        
         if (append) {
             messageElement.innerHTML += content;
         } else {
             messageElement.innerHTML = content;
         }
-        messageElement.querySelectorAll('pre code').forEach((block) => {
-            hljs.highlightElement(block);
-        });
-        this.scrollToBottom();
-        console.log('Message updated successfully');
-        return true;
+
+        // Preserve stream indicator if it exists
+        const existingIndicator = messageElement.querySelector('.stream-indicator');
+        if (existingIndicator) {
+            messageElement.appendChild(existingIndicator);
+        }
+
+        if (this.autoScrollEnabled) {
+            this.scrollToBottom();
+        }
+        return messageElement;
+    }
+
+    updateMessageMD(messageId, content, append = false) {
+        try {
+            content = String(content || '');
+            const parsedContent = window.marked.parse(content);
+            return this.updateMessage(messageId, parsedContent, append);
+        } catch (error) {
+            console.error('Error parsing markdown:', error);
+            return this.updateMessage(
+                messageId,
+                'Error rendering message',
+                append
+            );
+        }
     }
 
     updateMessage(messageId, content) {
         const message = this.messageContainer.querySelector(`#${messageId}`);
         if (message) {
-            // Check if we're at the bottom before updating
-            const isAtBottom = this.isScrolledToBottom();
-
             // First sanitize the content
             const sanitizedContent = window.DOMPurify.sanitize(content, {
                 ALLOWED_TAGS: ['pre', 'code', 'span', 'p', 'a', 'ul', 'ol', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
@@ -171,87 +189,70 @@ export class MessageHandler {
 
             // Set the final content
             message.innerHTML = tempDiv.innerHTML;
-
-            // If we were at the bottom, scroll back to bottom
-            if (isAtBottom) {
-                this.scrollToBottom();
-            }
         }
     }
 
-    isScrolledToBottom() {
-        const { scrollHeight, scrollTop, clientHeight } = this.messageContainer;
-        // Consider "at bottom" if within 10px of the bottom
-        return Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+    setMessageStreaming(messageId, streaming) {
+        const messageElement = this.messageContainer.querySelector(`#${messageId}`);
+        if (!messageElement) return false;
+
+        if (streaming) {
+            messageElement.classList.add('streaming');
+        } else {
+            messageElement.classList.remove('streaming');
+        }
+
+        const existingIndicator = messageElement.querySelector('.stream-indicator');
+        if (streaming && !existingIndicator) {
+            const indicator = document.createElement('span');
+            indicator.className = 'stream-indicator';
+            messageElement.appendChild(indicator);
+        } else if (!streaming && existingIndicator) {
+            existingIndicator.remove();
+        }
+        return true;
     }
 
     addCard({ content, actions = [], metadata = {} }) {
-        console.log('Adding card:', { content, actions, metadata });
         const cardElement = document.createElement('div');
-        cardElement.className = 'chat-message chat-card';
-        
-        // Create card content
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'chat-card-content';
-        contentDiv.innerHTML = window.marked.parse(String(content || ''));
-        cardElement.appendChild(contentDiv);
-        
-        // Create actions container if there are actions
+        cardElement.className = 'chat-card';
+        cardElement.innerHTML = content;
+
         if (actions && actions.length > 0) {
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'chat-card-actions';
-            
+            const actionsContainer = document.createElement('div');
+            actionsContainer.className = 'card-actions';
             actions.forEach(action => {
                 const button = document.createElement('button');
-                button.textContent = action.label;
-                button.addEventListener('click', () => {
-                    // Dispatch the event at the document level
-                    document.dispatchEvent(new CustomEvent(action.event, {
-                        bubbles: true,
-                        composed: true,
-                        detail: {
-                            cardId: id,
-                            action: action
-                        }
-                    }));
-                });
-                actionsDiv.appendChild(button);
+                button.textContent = action.text;
+                button.onclick = action.handler;
+                actionsContainer.appendChild(button);
             });
-            
-            cardElement.appendChild(actionsDiv);
+            cardElement.appendChild(actionsContainer);
         }
-        
+
         const id = metadata.id || this.generateId();
         cardElement.id = id;
         
         this.messageContainer.appendChild(cardElement);
-        this.scrollToBottom();
-        console.log('Card added with ID:', id);
+        
+        if (this.autoScrollEnabled) {
+            this.scrollToBottom();
+        }
         return id;
     }
 
     removeCard(cardId) {
-        console.log('Removing card:', cardId);
         const card = this.messageContainer.querySelector(`#${cardId}`);
         if (card) {
             card.remove();
-            console.log('Card removed successfully');
             return true;
         }
-        console.warn('Card not found:', cardId);
         return false;
     }
 
     clearMessages() {
-        console.log('Clearing all messages');
         while (this.messageContainer.firstChild) {
             this.messageContainer.removeChild(this.messageContainer.firstChild);
-        }
-    }
-
-    scrollToBottom() {
-        if (this.messageContainer) {
-            this.messageContainer.scrollTop = this.messageContainer.scrollHeight;
         }
     }
 
@@ -272,139 +273,64 @@ export class MessageHandler {
     }
 
     addCopyButtonsToMessage(messageId) {
-        console.log('Adding copy buttons to message:', messageId);
-        const message = this.messageContainer.querySelector(`#${messageId}`);
-        if (!message) {
-            console.warn('Message not found:', messageId);
-            return false;
-        }
+        const messageElement = this.messageContainer.querySelector(`#${messageId}`);
+        if (!messageElement) return;
 
-        // Find all code blocks in the message
-        const codeBlocks = message.querySelectorAll('pre code');
-        console.log('Found code blocks:', codeBlocks.length);
-        
-        codeBlocks.forEach((codeBlock, index) => {
-            // Check if copy button already exists
-            const existingButton = codeBlock.parentElement.querySelector('.copy-button');
-            if (existingButton) {
-                console.log(`Code block ${index}: Copy button already exists`);
-                return;
-            }
+        // Remove existing copy buttons first
+        messageElement.querySelectorAll('.copy-button').forEach(btn => btn.remove());
 
-            console.log(`Adding copy button to code block ${index}`);
-            // Create copy button
-            const copyButton = document.createElement('button');
-            copyButton.className = 'copy-button';
-            copyButton.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-            `;
-            copyButton.setAttribute('aria-label', 'Copy code');
-            copyButton.setAttribute('title', 'Copy code');
-
-            // Add click handler
-            copyButton.addEventListener('click', async () => {
-                try {
-                    const code = codeBlock.textContent;
-                    await navigator.clipboard.writeText(code);
-                    
-                    // Show success state
-                    copyButton.classList.add('copied');
-                    copyButton.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    `;
-                    
-                    // Reset after 2 seconds
-                    setTimeout(() => {
-                        copyButton.classList.remove('copied');
-                        copyButton.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
-                        `;
-                    }, 2000);
-                } catch (err) {
-                    console.error('Failed to copy code:', err);
-                }
-            });
-
-            // Add button to code block
+        // Add copy buttons to code blocks
+        const codeBlocks = messageElement.querySelectorAll('pre code');
+        codeBlocks.forEach(codeBlock => {
             const pre = codeBlock.parentElement;
-            pre.style.position = 'relative';
-            pre.appendChild(copyButton);
-            console.log(`Copy button added to code block ${index}`);
-        });
+            if (!pre.querySelector('.copy-button')) {
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-button';
+                copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>`;
 
-        return true;
+                copyButton.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(codeBlock.textContent);
+                        copyButton.classList.add('copied');
+                        setTimeout(() => copyButton.classList.remove('copied'), 2000);
+                    } catch (err) {
+                        console.error('Failed to copy code:', err);
+                    }
+                });
+
+                pre.appendChild(copyButton);
+            }
+        });
     }
 
     addCopyButtonToMessage(messageId) {
-        console.log('Adding copy button to message:', messageId);
-        const message = this.messageContainer.querySelector(`#${messageId}`);
-        if (!message) {
-            console.warn('Message not found:', messageId);
-            return false;
-        }
+        const messageElement = this.messageContainer.querySelector(`#${messageId}`);
+        if (!messageElement || messageElement.querySelector('.message-copy-button')) return;
 
-        // Check if copy button already exists
-        const existingButton = message.querySelector('.message-copy-button');
-        if (existingButton) {
-            console.log('Message copy button already exists');
-            return true;
-        }
-
-        console.log('Creating message copy button');
-        // Create copy button
         const copyButton = document.createElement('button');
         copyButton.className = 'message-copy-button';
-        copyButton.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-        `;
-        copyButton.setAttribute('aria-label', 'Copy message');
-        copyButton.setAttribute('title', 'Copy message');
+        copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>`;
 
-        // Add click handler
         copyButton.addEventListener('click', async () => {
             try {
-                const messageContent = message.textContent;
-                await navigator.clipboard.writeText(messageContent);
-                
-                // Show success state
+                const textContent = messageElement.textContent;
+                await navigator.clipboard.writeText(textContent);
                 copyButton.classList.add('copied');
-                copyButton.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                `;
-                
-                // Reset after 2 seconds
-                setTimeout(() => {
-                    copyButton.classList.remove('copied');
-                    copyButton.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                    `;
-                }, 2000);
+                setTimeout(() => copyButton.classList.remove('copied'), 2000);
             } catch (err) {
                 console.error('Failed to copy message:', err);
             }
         });
 
-        // Add button to message
-        message.style.position = 'relative';
-        message.appendChild(copyButton);
-        console.log('Message copy button added');
+        messageElement.classList.add('with-copy-button');
+        messageElement.appendChild(copyButton);
+    }
 
-        return true;
+    getMessageElement(messageId) {
+        return this.messageContainer.querySelector(`#${messageId}`);
     }
 }

@@ -3,75 +3,121 @@ export const themeStyles = `
     :host {
         --bg-color: #ffffff;
         --text-color: #333333;
+        --text-color-secondary: #666666;
         --border-color: #e0e0e0;
-        --focus-color: #007bff;
-        --hover-color: #f5f5f5;
-        --success-color: #28a745;
+        --chat-bg: var(--bg-color);
+        --messages-bg: var(--bg-color);
 
         /* Messages */
         --messages-bg: #ffffff;
         --sent-message-bg: #e3f2fd;
-        --sent-message-text: #333333;
+        --sent-message-text: var(--text-color);
         --received-message-bg: #f5f5f5;
-        --received-message-text: #333333;
+        --received-message-text: var(--text-color);
+        --system-message-bg: #fff3e0;
+        --system-message-text: #e65100;
+        --error-bg: #ffebee;
+        --error-text: #c62828;
+        --error-border: #ef9a9a;
 
         /* Input area */
         --input-bg: #ffffff;
-        --textarea-bg: #ffffff;
-        --button-bg: #007bff;
+        --input-text: var(--text-color);
+        --input-border: var(--border-color);
+        --input-focus-border: #2196f3;
+        --input-placeholder: #999999;
+
+        /* Button colors */
+        --button-bg: #2196f3;
         --button-text: #ffffff;
-        --button-hover-bg: #0056b3;
-        --button-disabled-bg: #cccccc;
-        --button-disabled-text: #666666;
+        --button-hover-bg: #1976d2;
+        --button-disabled-bg: #e0e0e0;
+        --button-disabled-text: #9e9e9e;
+
+        /* Primary colors */
+        --primary-color: #2196f3;
+        --primary-color-hover: #1976d2;
+        --heading-color: #1565c0;
 
         /* Code blocks */
         --chat-code-bg: #282c34;
         --chat-code-border: #3e4451;
         --chat-code-text: #abb2bf;
 
-        /* System Messages */
-        --system-message-bg: #f5f5f5;
-        --system-message-border: #e0e0e0;
-        --error-bg: #ffebee;
-        --error-border: #ef9a9a;
-        --error-text: #c62828;
+        /* Markdown specific colors */
+        --link-color: #2196f3;
+        --header-color: var(--text-color);
+        --blockquote-border: #666666;
+        --blockquote-text: var(--text-color-secondary);
+        --blockquote-bg: rgba(0, 0, 0, 0.05);
+        --table-border: #e0e0e0;
+        --table-header-bg: rgba(0, 0, 0, 0.05);
+        --table-row-even: rgba(0, 0, 0, 0.02);
+        --inline-code-bg: rgba(0, 0, 0, 0.05);
+        --hr-color: #e0e0e0;
+        --emphasis-color: inherit;
+        --strong-color: inherit;
+        --kbd-bg: #f7f7f7;
+        --kbd-border: #cccccc;
+        --kbd-color: #333333;
     }
 
     /* Dark theme */
     :host([data-theme="dark"]), [data-theme="dark"] :host {
-        --bg-color: #1e1e1e;
-        --text-color: #ffffff;
-        --border-color: #404040;
-        --focus-color: #0078d4;
-        --hover-color: #2d2d2d;
-        --success-color: #28a745;
+        --bg-color: #1a1a1a;
+        --text-color: #e0e0e0;
+        --text-color-secondary: #999999;
+        --border-color: #333333;
 
         /* Messages */
         --messages-bg: #1e1e1e;
-        --sent-message-bg: #0078d4;
+        --sent-message-bg: #1565c0;
         --sent-message-text: #ffffff;
         --received-message-bg: #2d2d2d;
-        --received-message-text: #ffffff;
+        --received-message-text: var(--text-color);
+        --system-message-bg: #3e2723;
+        --system-message-text: #ffab91;
+        --error-bg: #b71c1c;
+        --error-text: #ffcdd2;
+        --error-border: #c62828;
 
         /* Input area */
         --input-bg: #2d2d2d;
-        --textarea-bg: #2d2d2d;
-        --button-bg: #0078d4;
-        --button-text: #ffffff;
-        --button-hover-bg: #006abc;
+        --input-border: #404040;
+        --input-focus-border: #2196f3;
+        --input-placeholder: #666666;
+
+        /* Button colors */
+        --button-bg: #1976d2;
+        --button-hover-bg: #1565c0;
         --button-disabled-bg: #404040;
-        --button-disabled-text: #999999;
+        --button-disabled-text: #666666;
+
+        /* Primary colors */
+        --primary-color: #1976d2;
+        --primary-color-hover: #1565c0;
+        --heading-color: #1565c0;
 
         /* Code blocks */
         --chat-code-bg: #1e1e1e;
         --chat-code-border: #404040;
         --chat-code-text: #d4d4d4;
 
-        /* System Messages */
-        --system-message-bg: #2d2d2d;
-        --system-message-border: #404040;
-        --error-bg: #421c1c;
-        --error-border: #b71c1c;
-        --error-text: #ef5350;
+        /* Markdown specific colors */
+        --link-color: #64b5f6;
+        --header-color: var(--text-color);
+        --blockquote-border: #666666;
+        --blockquote-text: var(--text-color-secondary);
+        --blockquote-bg: rgba(255, 255, 255, 0.05);
+        --table-border: #404040;
+        --table-header-bg: rgba(255, 255, 255, 0.05);
+        --table-row-even: rgba(255, 255, 255, 0.02);
+        --inline-code-bg: rgba(255, 255, 255, 0.1);
+        --hr-color: #404040;
+        --emphasis-color: #e0e0e0;
+        --strong-color: #ffffff;
+        --kbd-bg: #2d2d2d;
+        --kbd-border: #404040;
+        --kbd-color: #e0e0e0;
     }
 `;
